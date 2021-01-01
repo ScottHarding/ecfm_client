@@ -1,0 +1,234 @@
+#!/bin/bash
+#####################################################
+# Filename: installer
+# Woods Hole Oceanographic Institution
+# Installation script for ECFM Client Web Application
+# Author: Scott Harding
+# Creation Date: 06/01/2020.
+# Version2.00: 
+# 11.11.2020: added template
+# 06.17.2020: added install dir /home/<logname>/current/bin/elog
+# 06.17.2020: added http port 8091
+# 10.23.2020: updated graphics
+#####################################################
+#set version
+VERSION=0.01
+
+printf "Choose an install directory:\n"
+installDir="";
+PS3='Enter a number [1-4]:'
+options=("/home/$(logname)/current/bin/elog/" "/var/www/" "Other" "Quit")
+select opt in "${options[@]}"
+do
+    case $opt in
+        "/home/$(logname)/current/bin/elog/")
+            echo "you chose choice 1"
+	    installDir=$opt
+            break
+	    ;;
+        "/var/www/")
+            echo "you chose choice 2"
+	    installDir=$opt
+            break
+	    ;;
+        "Other")
+            echo "you chose choice $REPLY which is $opt"
+	    printf "Please Enter an install directory[ex. /home/myusername/]:"
+	    read installDir
+	    # Check if string is empty 
+	    while [[ -z "$installDir" ]]; do
+		    printf "Please Enter an install directory[ex. /home/myusername/]:"
+		    read installDir
+	    done
+	    printf "Using %s\n" "$installDir"
+            break
+	    ;;
+        "Quit")
+            echo "Goodbye!"
+            exit 1
+            ;;
+        *) echo "invalid option $REPLY";;
+    esac
+done
+
+printf "Choose an HTTP port:\n"
+portNumber="";
+PS3='Enter a number [1-3]:'
+options=("8091" "Other" "Quit")
+select opt in "${options[@]}"
+do
+    case $opt in
+        "8091")
+            echo "you chose choice 1"
+	    portNumber=$opt
+            break
+	    ;;
+        "Other")
+            echo "you chose choice $REPLY which is $opt"
+	    printf "Please Enter a port number[ex. 8092]:"
+	    read portNumber
+	    # Check if string is empty using 
+	    while [[ -z "$portNumber" ]]; do
+		    printf "Please Enter a port number[ex. 8092]:"
+		    read portNumber
+	    done
+	    printf "Using %s\n" "$portNumber"
+            break
+	    ;;
+        "Quit")
+            echo "Goodbye!"
+            exit 1
+            ;;
+        *) echo "invalid option $REPLY";;
+    esac
+done
+
+
+#Check to make sure apache2 installed
+name=apache2
+dpkg -s $name &> /dev/null  
+
+if [ $? -ne 0 ]
+   then
+      echo "ERROR: $name not found, please install"  
+      exit 0
+   else
+      apache2 -v
+fi
+    
+#check to make sure php installed; if not, quit
+name=php
+dpkg -s $name &> /dev/null  
+
+if [ $? -ne 0 ]
+  then
+    echo "ERROR: $name not found, please install"  
+    exit 0
+  else
+    php -v
+fi
+
+
+#create public_html dir
+WWW_NAME=elog_client
+APACHE_DIR_ROOT="$installDir/${WWW_NAME}.com"
+APACHE_DOC_ROOT="$APACHE_DIR_ROOT/public_html"
+if [ ! -d ${APACHE_DOC_ROOT} ] 
+	then
+		echo "Creating Directory ${APACHE_DOC_ROOT}"
+		sudo mkdir -p ${APACHE_DOC_ROOT}
+                sudo chown -R r2root:www-data $APACHE_DIR_ROOT
+		sudo chmod -R 755 ${APACHE_DOC_ROOT}
+	else
+		echo "Directory ${APACHE_DOC_ROOT} already exists"
+		sudo chmod -R 755 ${APACHE_DOC_ROOT}
+fi
+
+#untar source files
+TARBALL="elog_client_web.v${VERSION}.tar.gz"
+if [ -f "${TARBALL}" ]; 
+   then
+      echo "decompressing source files into ${APACHE_DOC_ROOT}"
+      if sudo tar -xf ${TARBALL} -C ${APACHE_DOC_ROOT};
+         then
+            echo "decompresson of ${TARBALL} successful"
+         else
+            echo "ERROR: tar failure"
+	    exit 0
+      fi
+   else
+      printf "%s" "ERROR: ${TARBALL} not found"
+      echo ""
+      exit 0
+fi
+
+#create apache virtual host file
+APACHE_VIRT_HOST_FILENAME="/etc/apache2/sites-available/${WWW_NAME}.com.conf"
+APACHE_DEFAULT_CONF="/etc/apache2/sites-available/000-default.conf"
+if [ -f ${APACHE_DEFAULT_CONF} ] 
+	then
+		echo "Creating Virtual Host File ${APACHE_VIRT_HOST_FILENAME}"
+		sudo cp ${APACHE_DEFAULT_CONF} ${APACHE_VIRT_HOST_FILENAME} 
+	else
+		echo "ERROR: Apache Conf File ${APACHE_DEFAULT_CONF} not found"
+		exit 0
+fi
+
+#modify apache virtual host file to include elog
+if [ -f ${APACHE_VIRT_HOST_FILENAME} ] 
+	then
+	       sudo sed -i "s/ServerAdmin.*/ServerAdmin lstolp@whoi.edu\n\tServerName ${WWW_NAME}.com\n\tServerAlias www.${WWW_NAME}.com/" ${APACHE_VIRT_HOST_FILENAME}
+	       #required to escape slash in pathname for sed, replace all "/" with "\/"
+	       apache_string=${APACHE_DOC_ROOT}
+	       apache_doc_root=${apache_string//\//\\\/}
+	       echo "Setting $apache_string as DocumentRoot"
+	       sudo sed -i "s/DocumentRoot.*/DocumentRoot $apache_doc_root/" ${APACHE_VIRT_HOST_FILENAME}
+	       sudo sed -i "s/<VirtualHost \*:80>/<VirtualHost \*:$portNumber>/" ${APACHE_VIRT_HOST_FILENAME}
+	else
+		echo "ERROR: Virtual Host File ${APACHE_VIRT_HOST_FILENAME} not found"
+		exit 0
+fi
+
+#modify apache conf file to include elog dir
+newApacheDirectoryText="<Directory ${APACHE_DIR_ROOT}/>\n
+\tOptions Indexes FollowSymLinks\n
+\tAllowOverride None\n
+\tRequire all granted\n
+</Directory>"
+APACHE_CONF_FILENAME="/etc/apache2/apache2.conf"
+if [ -f ${APACHE_CONF_FILENAME} ] 
+	then
+		if grep "${APACHE_DIR_ROOT}" ${APACHE_CONF_FILENAME}
+		then
+			echo "${APACHE_DIR_ROOT} already set in ${APACHE_CONF_FILENAME}"
+		else
+			echo -e "appending ${APACHE_CONF_FILENAME} with:\n $newApacheDirectoryText"
+			sudo echo -e $newApacheDirectoryText >> ${APACHE_CONF_FILENAME}
+		fi
+	else
+		echo "ERROR: Apache Conf File ${APACHE_CONF_FILENAME} not found"
+		exit 0
+fi
+
+
+#modify apache port file to include  port number
+APACHE_PORT_FILENAME="/etc/apache2/ports.conf"
+APACHE_PORT_NUMBER="Listen $portNumber"
+if [ -f ${APACHE_PORT_FILENAME} ] 
+	then
+		if grep "${APACHE_PORT_NUMBER}" ${APACHE_PORT_FILENAME}
+		then
+			echo "${APACHE_PORT_NUMBER} already set in ${APACHE_PORT_FILENAME}"
+		else
+			echo -e "appending ${APACHE_CONF_FILENAME} with:\n $newApacheDirectoryText"
+			sudo sed -i "s/Listen 80/Listen 80\n${APACHE_PORT_NUMBER}/" ${APACHE_PORT_FILENAME}
+		fi
+	else
+		echo "ERROR: Apache Conf File ${APACHE_CONF_FILENAME} not found"
+		exit 0
+fi
+
+
+#restart apache
+if [ -f ${APACHE_VIRT_HOST_FILENAME} ] 
+	then
+		echo "running a2ensite ${WWW_NAME}.com.conf"
+		sudo a2enmod php7.4
+                sudo a2ensite ${WWW_NAME}.com.conf
+		sudo systemctl restart apache2
+		sudo apache2ctl -S
+	else
+		echo "ERROR: Virtual Host File ${APACHE_VIRT_HOST_FILENAME}  not found"
+		exit 0
+fi
+
+            echo "#####################"
+            echo "Installation Complete!"
+            echo "#####################"
+            echo "To test, enter this URL in a browser:"
+            printf "http://%s:%s" `hostname` $portNumber
+            echo ""
+            echo "OR:"
+            printf "http://%s:%s" `hostname -I | awk '{print $1}'` $portNumber
+            echo ""
+

@@ -1,0 +1,43 @@
+Changes:
+- removed Version display execpt in home page.
+- migrated to a template structure
+- updated install script to default dir and port number
+- consilidated php files
+- current_cruise link no longer required. Get cruise id from ps command.
+- improved error checking
+- includes install script
+- V6 added overlay
+
+
+to build install script:
+>cd install
+>vim build
+edit build script  to have new version, eg:
+VERSION="1.13"
+DATE="11052020"
+BSX_FILE="install_elog_web.v${VERSION}.${DATE}.bsx"
+
+edit install script  to have new version
+> vim install/payload/installer
+VERSION=1.13
+
+remove old tar ball
+rm install/payload/elog_client_web.v2.01.tar.gz
+
+create a tar ball of the files for the payload to match version:
+
+
+for example, 
+cd elog_webclient_dev_v2
+tar cfv elog_client_web.v1.11.tar index.php css js php tpl README
+gzip elog_client_web.v1.11.tar
+
+Move the tar file to payload:
+>mv elog_client_web.v1.11.tar.gz install/payload
+>cd install
+>./build
+
+to install, from any dir:
+sudo ./install.bsx
+
+
