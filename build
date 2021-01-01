@@ -12,7 +12,7 @@
 # 10.23.2020: updated graphics
 #####################################################
 #set version
-VERSION=0.01
+VERSION=2.00
 
 printf "Choose an install directory:\n"
 installDir="";
@@ -124,20 +124,25 @@ if [ ! -d ${APACHE_DOC_ROOT} ]
 		sudo chmod -R 755 ${APACHE_DOC_ROOT}
 fi
 
-#untar source files
-TARBALL="elog_client_web.v${VERSION}.tar.gz"
-if [ -f "${TARBALL}" ]; 
+#cp source files
+INDEX_FILE="index.php"
+if [ -f "${INDEX_FILE}" ]; 
    then
-      echo "decompressing source files into ${APACHE_DOC_ROOT}"
-      if sudo tar -xf ${TARBALL} -C ${APACHE_DOC_ROOT};
+      echo "copyig source files to ${APACHE_DOC_ROOT}"
+      if 
+	      sudo cp -r ${INDEX_FILE}  ${APACHE_DOC_ROOT};
+	      sudo cp -r tpl  ${APACHE_DOC_ROOT};
+	      sudo cp -r css  ${APACHE_DOC_ROOT};
+	      sudo cp -r js  ${APACHE_DOC_ROOT};
+	      sudo cp -r php  ${APACHE_DOC_ROOT};
          then
-            echo "decompresson of ${TARBALL} successful"
+            echo "copying of source files to ${APACHE_DOC_ROOT} successful"
          else
-            echo "ERROR: tar failure"
+            echo "ERROR: copy failure"
 	    exit 0
       fi
    else
-      printf "%s" "ERROR: ${TARBALL} not found"
+      printf "%s" "ERROR: ${INDEX_FILE} not found"
       echo ""
       exit 0
 fi
@@ -213,7 +218,6 @@ fi
 if [ -f ${APACHE_VIRT_HOST_FILENAME} ] 
 	then
 		echo "running a2ensite ${WWW_NAME}.com.conf"
-		sudo a2enmod php7.4
                 sudo a2ensite ${WWW_NAME}.com.conf
 		sudo systemctl restart apache2
 		sudo apache2ctl -S
