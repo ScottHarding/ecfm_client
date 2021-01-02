@@ -1,7 +1,7 @@
 <?PHP
 function getCruiseID(){
 	$cfg_filename = "/shipdata/cruise_cfg/current_cfg";
-	$filehandle = fopen($cfg_filename, "r") or die("Unable to open file!");
+	$filehandle = fopen($cfg_filename, "r") or die("Unable to open $cfg_filename!");
 	while(!feof($filehandle)) {
 		$line = fgets($filehandle); //get line
 		$match = preg_match("/(CRUISEID)(.*)/", $line, $matches); //search for Cruise ID
@@ -93,7 +93,7 @@ function getInstrumentList(){
    if(file_exists($peoplecsv)){
 	   $html_code = "<label for=\"instrumentID\">Instruments:</label>";
 	   $html_code .= "<select multiple=\"multiple\" name=\"instrument\" id=\"instrumentID\">";
-	   $handle = fopen($instrumentcsv, "r") or die("Unable to open file!");
+	   $handle = fopen($instrumentcsv, "r") or die("Unable to open $handle!");
 	   while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
 		   $num = count($data);
 		   $row++;
@@ -143,7 +143,7 @@ $html_code .= "    switch (instrumentSelection) { \n";
           $cruiseID=getCruiseID();
           $instrumentcsv = "/shipdata/$cruiseID/r2r/eventlog/elog/ecfm/ecfm_instrument_list.csv";
           $row = 1;
-          $handle = fopen($instrumentcsv, "r") or die("Unable to open file!");
+          $handle = fopen($instrumentcsv, "r") or die("Unable to open $handle!");
           while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
                $num = count($data);
                $row++;
